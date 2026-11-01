@@ -1,0 +1,16 @@
+'use strict';
+(() => {
+  const keys = ['calories','protein','fat','carbs'];
+  const parse = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d,12); };
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const addDays = (s,n) => {const d=parse(s); d.setDate(d.getDate()+n); return iso(d);};
+  const core = {
+    parse, iso, addDays,
+    today: () => iso(new Date()),
+    weekStart: s => addDays(s, -(parse(s).getDay()+6)%7),
+    portion: (dish, grams) => Object.fromEntries(keys.map(k => [k, Number(dish[k])*Number(grams)/100])),
+    total: list => Object.fromEntries(keys.map(k => [k,list.reduce((sum,n)=>sum+Number(n[k]||0),0)])),
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports=core;
+  else window.MenuCore=core;
+})();

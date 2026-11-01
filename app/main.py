@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 from app.auth import telegram_user
 from app.schedule import CardInput, next_due
 from app.store import Base, Card
+from app.menu import menu_router
 
 logger = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
@@ -60,7 +61,8 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
             # Supabase exposes public tables via its API. Only our DB owner may
             # access cards; no anonymous/authenticated API policies are created.
             with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE cards ENABLE ROW LEVEL SECURITY"))
+                for table in Base.metadata.sorted_tables:
+                    connection.execute(text(f'ALTER TABLE "{table.name}" ENABLE ROW LEVEL SECURITY'))
         task = None
         if os.getenv("LOCAL_SCHEDULER", "false").lower() == "true" and not demo:
             async def loop():
@@ -108,6 +110,8 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
         if row is None:
             raise HTTPException(404, "Карточка не найдена")
         return row
+
+    app.include_router(menu_router(sessions, user))
 
     @app.get("/health")
     def health():

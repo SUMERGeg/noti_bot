@@ -21,7 +21,7 @@ async function api(path, options = {}) {
   if (!response.ok) {
     let body; try { body = await response.json(); } catch {}
     const detail = body?.detail;
-    throw new Error(typeof detail === 'string' ? detail : Array.isArray(detail) ? 'Проверь название, время, дни повторения и часовой пояс.' : 'Не удалось сохранить изменения. Проверь соединение и попробуй ещё раз.');
+    throw new Error(typeof detail === 'string' ? detail : Array.isArray(detail) ? 'Проверь заполненные поля и значения.' : 'Не удалось сохранить изменения. Проверь соединение и попробуй ещё раз.');
   }
   return response.status === 204 ? null : response.json();
 }

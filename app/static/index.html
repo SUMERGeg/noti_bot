@@ -4,14 +4,19 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f7f8f2"><title>Рядом — для Муси ♡</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ctext y='32' font-size='32'%3E🌿%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/style.css?v=musya-1">
+  <link rel="stylesheet" href="/static/style.css?v=menu-2">
+  <link rel="stylesheet" href="/static/menu.css?v=menu-2">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/app.js?v=musya-1" defer></script>
+  <script src="/static/app.js?v=menu-2" defer></script>
+  <script src="/static/menu-core.js?v=menu-2" defer></script>
+  <script src="/static/menu.js?v=menu-2" defer></script>
 </head>
 <body>
 <main class="shell">
   <header class="topbar"><a class="brand" href="/" aria-label="Рядом, главная"><span class="brand-icon">✳</span> рядом<span class="brand-dot">.</span></a><span class="eyebrow">ДЛЯ МУСИ, С ЛЮБОВЬЮ</span></header>
+  <nav class="main-switch" aria-label="Раздел приложения"><button type="button" id="show-reminders" aria-pressed="true">✳ Карточки</button><button type="button" id="show-menu" aria-pressed="false">♡ Рацион</button></nav>
   <div id="demo" class="notice" hidden>Локальный режим · карточки сохраняются, уведомления не отправляются.</div>
+  <div id="reminders-view">
   <section class="intro"><div class="eyebrow" id="today"></div><h1>Муся, я рядом.<br><span>В твоём ритме.</span></h1><p>Твои маленькие напоминания о важном.<br>Без спешки, с заботой о тебе ♡</p><div class="illustration" aria-hidden="true"><div class="orbit"></div><span class="leaf one"></span><span class="leaf two"></span><span class="stem"></span><span class="spark">✧</span><span class="little-dot"></span></div></section>
   <section class="next" id="next" hidden><span class="next-icon" aria-hidden="true">◷</span><div><div class="eyebrow">БЛИЖАЙШЕЕ НАПОМИНАНИЕ</div><strong id="next-title"></strong><span id="next-time"></span></div></section>
   <section aria-labelledby="cards-heading"><div class="section-head"><h2 id="cards-heading">Мои карточки <span id="count">0</span></h2><button class="button primary compact" id="create"><span aria-hidden="true">＋</span> Создать</button></div>
@@ -21,6 +26,8 @@
     <div id="empty" class="empty" hidden><div class="empty-icon" aria-hidden="true">✧</div><h3>Муся, начнём с одной карточки?</h3><p>Сохрани важную мысль или маленькое дело.<br>Я побуду твоим бережным напоминанием ♡</p><button class="button secondary" id="create-first">Моя первая карточка</button></div>
   </section>
   <footer><span aria-hidden="true">✳</span> Обнимаю, Муся. Всё в твоём ритме ♡</footer>
+  </div>
+  <section id="nutrition" hidden aria-label="Моё меню"></section>
 </main>
 <dialog id="editor" aria-labelledby="editor-title">
  <form id="form" class="dialog-content">
