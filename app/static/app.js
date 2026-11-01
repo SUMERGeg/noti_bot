@@ -3,6 +3,14 @@ const $ = (id) => document.getElementById(id);
 const tg = window.Telegram?.WebApp;
 tg?.ready(); tg?.expand();
 try { tg?.setHeaderColor('#f7f8f2'); tg?.setBackgroundColor('#f7f8f2'); } catch {}
+function syncViewport() {
+  const height = Math.min(window.innerHeight, window.visualViewport?.height || Infinity, tg?.viewportHeight || Infinity);
+  document.documentElement.style.setProperty('--app-height', height + 'px');
+}
+syncViewport();
+window.addEventListener('resize', syncViewport);
+window.visualViewport?.addEventListener('resize', syncViewport);
+tg?.onEvent?.('viewportChanged', syncViewport);
 const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 let cards = [], editing = null, reading = null, repeat = 'daily', toastTimer;
 const selectedWeek = new Set(), selectedMonth = new Set();
@@ -81,7 +89,7 @@ function openEditor(card = null) {
   $('timezone').value = card?.timezone || 'Europe/Moscow'; selectedWeek.clear(); selectedMonth.clear();
   (card?.weekdays || []).forEach(d => selectedWeek.add(d)); (card?.monthdays || []).forEach(d => selectedMonth.add(d));
   dayButtons('weekdays', days, [0,1,2,3,4,5,6], selectedWeek); dayButtons('monthdays', Array.from({length:31},(_,i)=>String(i+1)), Array.from({length:31},(_,i)=>i+1), selectedMonth);
-  $('slots').replaceChildren(); (card?.times || ['09:00']).forEach(addSlot); setRepeat(card?.repeat || 'daily'); $('editor').showModal();
+  $('slots').replaceChildren(); (card?.times || ['09:00']).forEach(addSlot); setRepeat(card?.repeat || 'daily'); $('editor').showModal(); $('editor').querySelector('.dialog-body').scrollTop = 0;
 }
 document.querySelectorAll('.close').forEach(b => b.onclick = () => b.closest('dialog').close());
 document.querySelectorAll('[data-repeat]').forEach(b => b.onclick = () => setRepeat(b.dataset.repeat));
@@ -95,7 +103,7 @@ $('form').onsubmit = async (event) => {
   $('save').disabled = true; $('save').textContent = 'Сохраняем…'; showError('form-error', '');
   try {
     const saved = await api('/cards' + (editing ? '/' + editing : ''), {method: editing ? 'PUT' : 'POST', body: JSON.stringify(data)});
-    cards = cards.filter(c => c.id !== saved.id); cards.push(saved); cards.sort((a,b)=>new Date(a.next_at)-new Date(b.next_at)); render(); $('editor').close(); notify('Карточка сохранена'); tg?.HapticFeedback?.notificationOccurred('success');
+    cards = cards.filter(c => c.id !== saved.id); cards.push(saved); cards.sort((a,b)=>new Date(a.next_at)-new Date(b.next_at)); render(); $('editor').close(); notify('Карточка сохранена, Муся ♡'); tg?.HapticFeedback?.notificationOccurred('success');
   } catch (err) { showError('form-error', err.message); }
   finally { $('save').disabled = false; $('save').textContent = 'Сохранить карточку'; }
 };
