@@ -35,11 +35,13 @@ function dateLabel(value, zone) {
 }
 function notify(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 3500); }
 function showError(id, text) { $(id).textContent = text; $(id).hidden = !text; }
+function flagEmoji(flag) { return [...$('flag').options].find(option => option.value === flag)?.dataset.emoji || ''; }
+function flagPreview() { const emoji=flagEmoji($('flag').value), title=$('title').value.trim()||'Название карточки';$('notification-title').textContent=emoji?`${emoji} ${title} ${emoji}`:title; }
 function render() {
   $('cards').replaceChildren(); $('count').textContent = cards.length; $('empty').hidden = cards.length > 0;
   for (const card of cards) {
     const node = el('button', 'card'); node.type = 'button';
-    const top = el('div', 'card-top'); top.append(el('span', 'card-icon', card.description ? '✳' : '◷'), el('span', 'arrow', '↗'));
+    const top = el('div', 'card-top'); top.append(el('span', 'card-icon', flagEmoji(card.flag) || (card.description ? '✳' : '◷')), el('span', 'arrow', '↗'));
     node.append(top, el('h3', '', card.title), el('p', 'excerpt', card.description || 'Напоминание без описания'));
     const slots = el('div', 'card-bottom'); card.times.forEach(t => slots.append(el('span', 'time-tag', t)));
     node.append(slots, el('div', 'repeat-note', summary(card))); node.onclick = () => openReader(card.id); $('cards').append(node);
@@ -60,6 +62,7 @@ function openReader(id) {
   const card = cards.find(c => c.id === Number(id));
   if (!card) { notify('Карточка удалена или недоступна'); return; }
   reading = card; $('reader-title').textContent = card.title; $('reader-description').textContent = card.description || 'У этой карточки нет описания.';
+  $('reader').querySelector('.card-icon').textContent = flagEmoji(card.flag) || '✳';
   $('reader-schedule').textContent = summary(card) + ' · ' + card.times.join(', ');
   $('reader-next').textContent = 'Следующее: ' + dateLabel(card.next_at, card.timezone);
   $('reader').showModal();
@@ -81,11 +84,12 @@ function setRepeat(value) {
   repeat = value; document.querySelectorAll('[data-repeat]').forEach(b => b.setAttribute('aria-pressed', b.dataset.repeat === value));
   $('week-wrap').hidden = value !== 'weekly'; $('month-wrap').hidden = value !== 'monthly'; preview();
 }
-function values() { return {title: $('title').value.trim(), description: $('description').value.trim(), times: [...new Set([...$('slots').querySelectorAll('input')].map(i => i.value).filter(Boolean))].sort(), repeat, weekdays: [...selectedWeek].sort((a,b)=>a-b), monthdays: [...selectedMonth].sort((a,b)=>a-b), timezone: $('timezone').value.trim()}; }
+function values() { return {title: $('title').value.trim(), description: $('description').value.trim(), flag: $('flag').value, times: [...new Set([...$('slots').querySelectorAll('input')].map(i => i.value).filter(Boolean))].sort(), repeat, weekdays: [...selectedWeek].sort((a,b)=>a-b), monthdays: [...selectedMonth].sort((a,b)=>a-b), timezone: $('timezone').value.trim()}; }
 function preview() { const data = values(); $('preview').textContent = summary(data) + (data.times.length ? ' · ' + data.times.join(', ') : ' · выбери время'); }
 function openEditor(card = null) {
   editing = card?.id ?? null; $('form').reset(); showError('form-error', ''); $('save').disabled = false;
   $('editor-title').textContent = card ? 'Редактировать карточку' : 'Новая карточка'; $('title').value = card?.title || ''; $('description').value = card?.description || '';
+  $('flag').value = card?.flag || ''; flagPreview();
   $('timezone').value = card?.timezone || 'Europe/Moscow'; selectedWeek.clear(); selectedMonth.clear();
   (card?.weekdays || []).forEach(d => selectedWeek.add(d)); (card?.monthdays || []).forEach(d => selectedMonth.add(d));
   dayButtons('weekdays', days, [0,1,2,3,4,5,6], selectedWeek); dayButtons('monthdays', Array.from({length:31},(_,i)=>String(i+1)), Array.from({length:31},(_,i)=>i+1), selectedMonth);
@@ -94,6 +98,7 @@ function openEditor(card = null) {
 document.querySelectorAll('.close').forEach(b => b.onclick = () => b.closest('dialog').close());
 document.querySelectorAll('[data-repeat]').forEach(b => b.onclick = () => setRepeat(b.dataset.repeat));
 $('create').onclick = $('create-first').onclick = () => openEditor(); $('add-time').onclick = () => addSlot(); $('timezone').oninput = preview; $('retry').onclick = load;
+$('flag').onchange = flagPreview; $('title').oninput = flagPreview;
 $('edit').onclick = () => { $('reader').close(); openEditor(reading); };
 $('form').onsubmit = async (event) => {
   event.preventDefault(); const data = values();

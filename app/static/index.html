@@ -4,10 +4,10 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f7f8f2"><title>Рядом — для Муси ♡</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ctext y='32' font-size='32'%3E🌿%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/style.css?v=menu-2">
+  <link rel="stylesheet" href="/static/style.css?v=flags-1">
   <link rel="stylesheet" href="/static/menu.css?v=menu-2">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/app.js?v=menu-2" defer></script>
+  <script src="/static/app.js?v=flags-1" defer></script>
   <script src="/static/menu-core.js?v=menu-2" defer></script>
   <script src="/static/menu.js?v=menu-2" defer></script>
 </head>
@@ -34,6 +34,9 @@
   <div class="dialog-head"><div><div class="eyebrow">ДЛЯ ТЕБЯ, МУСЯ ♡</div><h2 id="editor-title">Новая карточка</h2></div><button type="button" class="icon-button close" aria-label="Закрыть">×</button></div>
   <div class="dialog-body">
   <label for="title">Название <span class="required">*</span></label><input id="title" name="title" maxlength="200" placeholder="Например, минутка заботы о себе" required autocomplete="off">
+  <label for="flag">О чём напомнить? <span class="optional">необязательно</span></label>
+  <select id="flag"><option value="">Без флага</option><option value="medicine" data-emoji="💊">💊 Таблетки</option><option value="therapy" data-emoji="🧠">🧠 Практика и терапия</option><option value="food" data-emoji="🍽️">🍽️ Еда</option><option value="water" data-emoji="💧">💧 Вода</option><option value="movement" data-emoji="🚶">🚶 Движение и прогулка</option><option value="rest" data-emoji="🌙">🌙 Сон и отдых</option><option value="selfcare" data-emoji="🌿">🌿 Забота о себе</option><option value="other" data-emoji="🔔">🔔 Другое</option></select>
+  <div class="notification-preview" aria-live="polite"><span class="eyebrow">ТАК БОТ НАПОМНИТ В ЧАТЕ</span><p id="notification-title"></p></div>
   <label for="description">Описание <span class="optional">необязательно</span></label><textarea id="description" name="description" maxlength="20000" rows="5" placeholder="Тёплые слова для себя, полезная мысль или текст карточки…"></textarea><p class="hint">Добавь текст, если хочешь открывать и читать его прямо из напоминания.</p>
   <div class="field-head"><label>Время напоминаний <span class="required">*</span></label><span class="optional">до 24 слотов</span></div><div id="slots" class="slots"></div><button type="button" id="add-time" class="text-button">＋ Добавить время</button>
   <label id="repeat-label">Повторять</label><div class="segments" role="group" aria-labelledby="repeat-label"><button type="button" data-repeat="daily" aria-pressed="true">Каждый день</button><button type="button" data-repeat="weekly" aria-pressed="false">По дням недели</button><button type="button" data-repeat="monthly" aria-pressed="false">По числам</button></div>

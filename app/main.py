@@ -3,6 +3,7 @@ import hmac
 import logging
 import os
 import threading
+from html import escape
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,8 +16,8 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 from app.auth import telegram_user
-from app.schedule import CardInput, next_due
-from app.store import Base, Card
+from app.schedule import CARD_FLAG_EMOJI, CardInput, next_due
+from app.store import Base, Card, ensure_card_flag
 from app.menu import menu_router
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
     @asynccontextmanager
     async def lifespan(app):
         Base.metadata.create_all(engine)
+        ensure_card_flag(engine)
         if engine.dialect.name == "postgresql":
             # Supabase exposes public tables via its API. Only our DB owner may
             # access cards; no anonymous/authenticated API policies are created.
@@ -166,6 +168,10 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
                             continue
                         if naive(now) - row.next_at <= timedelta(hours=1):
                             body = {"chat_id": row.user_id, "text": row.title}
+                            emoji = CARD_FLAG_EMOJI.get(row.flag)
+                            if emoji:
+                                body['text'] = f'{emoji} <b>{escape(row.title)}</b> {emoji}'
+                                body['parse_mode'] = 'HTML'
                             if row.description:
                                 body["reply_markup"] = {"inline_keyboard": [[{"text": "Открыть карточку", "web_app": {"url": f"{url}/?card={row.id}"}}]]}
                             app.state.telegram_send("sendMessage", body)

@@ -4,10 +4,16 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, model_validator
 
+CARD_FLAG_EMOJI = {
+    'medicine': '💊', 'therapy': '🧠', 'food': '🍽️', 'water': '💧',
+    'movement': '🚶', 'rest': '🌙', 'selfcare': '🌿', 'other': '🔔',
+}
+
 
 class CardInput(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=20000)
+    flag: Literal['', 'medicine', 'therapy', 'food', 'water', 'movement', 'rest', 'selfcare', 'other'] = ''
     times: list[str] = Field(min_length=1, max_length=24)
     repeat: Literal["daily", "weekly", "monthly"] = "daily"
     weekdays: list[int] = Field(default_factory=list)

@@ -128,3 +128,41 @@ def test_render_url_without_manual_configuration(tmp_path, monkeypatch, override
     with TestClient(app) as client:
         client.post("/telegram/webhook", headers={"X-Telegram-Bot-Api-Secret-Token": "hook"}, json={"message": {"chat": {"id": 42, "type": "private"}, "text": "/start"}})
     assert sent[0]["reply_markup"]["inline_keyboard"][0][0]["web_app"]["url"] == expected
+
+
+def test_optional_flag_is_saved_changed_and_removed(client):
+    r = client.post('/api/cards', headers=signed(), json=card(flag='medicine'))
+    assert r.status_code == 201
+    ident = r.json()['id']
+    assert r.json()['flag'] == 'medicine'
+    assert client.get('/api/cards', headers=signed()).json()[0]['flag'] == 'medicine'
+    assert client.put(f'/api/cards/{ident}', headers=signed(), json=card(flag='water')).json()['flag'] == 'water'
+    assert client.put(f'/api/cards/{ident}', headers=signed(), json=card(flag='')).json()['flag'] == ''
+    assert client.post('/api/cards', headers=signed(), json=card(flag='invalid')).status_code == 422
+
+
+def test_flagged_notification_wraps_bold_escaped_title(client):
+    from app.store import Card
+    sent = []
+    client.app.state.telegram_send = lambda method, body: sent.append(body)
+    ident = client.post('/api/cards', headers=signed(), json=card(title='Таблетки <утро> & вода', flag='medicine')).json()['id']
+    with client.app.state.sessions.begin() as db:
+        db.get(Card, ident).next_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert client.post('/jobs/tick', headers={'Authorization':'Bearer jobs'}).json()['sent'] == 1
+    assert sent[0]['text'] == '💊 <b>Таблетки &lt;утро&gt; &amp; вода</b> 💊'
+    assert sent[0]['parse_mode'] == 'HTML'
+
+
+def test_legacy_database_gets_empty_flag_without_losing_cards(tmp_path):
+    from sqlalchemy import create_engine, text
+    url = f"sqlite:///{tmp_path / 'legacy.db'}"
+    engine = create_engine(url)
+    with engine.begin() as db:
+        db.execute(text('CREATE TABLE cards (id INTEGER PRIMARY KEY, user_id BIGINT NOT NULL, title VARCHAR(200) NOT NULL, description TEXT NOT NULL, times JSON NOT NULL, repeat VARCHAR(10) NOT NULL, weekdays JSON NOT NULL, monthdays JSON NOT NULL, timezone VARCHAR(100) NOT NULL, next_at DATETIME NOT NULL, created_at DATETIME NOT NULL)'))
+        db.execute(text('INSERT INTO cards VALUES (1,42,\'Старая карточка\',\'Текст\',\'["12:00"]\',\'daily\',\'[]\',\'[]\',\'Europe/Moscow\',\'2027-01-01 09:00:00\',\'2026-11-01 09:00:00\')'))
+    engine.dispose()
+    for _ in range(2):
+        with TestClient(create_app(database_url=url, bot_token='test-token', dev_mode=False)) as c:
+            saved = c.get('/api/cards', headers=signed()).json()[0]
+            assert saved['flag'] == ''
+            assert saved['title'] == 'Старая карточка'
