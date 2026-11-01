@@ -49,7 +49,7 @@ python -m uvicorn app.main:create_app --factory --env-file .env --reload
    |---|---|
    | DATABASE_URL | PostgreSQL Session pooler из шага 2 |
    | BOT_TOKEN | Токен BotFather |
-   | PUBLIC_URL | Полный адрес приложения, например https://ryadom-reminders.onrender.com |
+   | PUBLIC_URL | Необязательно: Render автоматически передаёт адрес через RENDER_EXTERNAL_URL. Укажите PUBLIC_URL только для своего домена |
    | DEV_MODE | false |
    | LOCAL_SCHEDULER | false |
    | JOB_SECRET | Случайный секрет для планировщика |
@@ -58,9 +58,10 @@ python -m uvicorn app.main:create_app --factory --env-file .env --reload
 
    Blueprint сам генерирует оба секрета. При ручном создании сгенерируйте каждый
    командой `python -c "import secrets; print(secrets.token_hex(32))"`.
-   Адрес PUBLIC_URL должен совпадать с реальным адресом Render, без пути.
+   При первом деплое PUBLIC_URL не нужен — адрес определяется автоматически.
    Дождитесь успешного деплоя; `/health` должен возвращать `{"ok":true}`.
-5. Скопируйте BOT_TOKEN, PUBLIC_URL и WEBHOOK_SECRET из Render в локальный .env
+5. Скопируйте BOT_TOKEN и WEBHOOK_SECRET из Render в локальный .env,
+   а адрес опубликованного сервиса запишите локально как PUBLIC_URL
    (секрет webhook должен совпасть!). Выполните:
 
    ```powershell

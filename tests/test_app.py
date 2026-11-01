@@ -116,3 +116,15 @@ def test_stale_reminder_skipped_and_auth_tampering(client):
     assert client.post("/jobs/tick", headers={"Authorization": "Bearer jobs"}).json()["sent"] == 0
     assert sent == []
     assert datetime.fromisoformat(client.get("/api/cards", headers=signed()).json()[0]["next_at"]) > datetime.now(timezone.utc)
+
+
+@pytest.mark.parametrize("override,expected", [("", "https://noti-bot.onrender.com"), ("https://custom.example", "https://custom.example")])
+def test_render_url_without_manual_configuration(tmp_path, monkeypatch, override, expected):
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://noti-bot.onrender.com")
+    monkeypatch.setenv("PUBLIC_URL", override)
+    app = create_app(database_url=f"sqlite:///{tmp_path / 'render.db'}", webhook_secret="hook", dev_mode=False)
+    sent = []
+    app.state.telegram_send = lambda method, body: sent.append(body)
+    with TestClient(app) as client:
+        client.post("/telegram/webhook", headers={"X-Telegram-Bot-Api-Secret-Token": "hook"}, json={"message": {"chat": {"id": 42, "type": "private"}, "text": "/start"}})
+    assert sent[0]["reply_markup"]["inline_keyboard"][0][0]["web_app"]["url"] == expected

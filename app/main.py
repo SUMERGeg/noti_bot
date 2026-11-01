@@ -42,12 +42,12 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
     token = bot_token if bot_token is not None else os.getenv("BOT_TOKEN", "")
     jobs = job_secret if job_secret is not None else os.getenv("JOB_SECRET", "")
     hook = webhook_secret if webhook_secret is not None else os.getenv("WEBHOOK_SECRET", "")
-    url = (public_url or os.getenv("PUBLIC_URL", "")).rstrip("/")
+    url = (public_url or os.getenv("PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL", "")).rstrip("/")
     demo = dev_mode if dev_mode is not None else os.getenv("DEV_MODE", "false").lower() == "true"
     owner = int(os.getenv("OWNER_TELEGRAM_ID", "0"))
     if os.getenv("RENDER"):
         if demo or database_url.startswith("sqlite") or not all([token, jobs, hook, url.startswith("https://")]):
-            raise RuntimeError("Render: задайте PostgreSQL DATABASE_URL, BOT_TOKEN, JOB_SECRET, WEBHOOK_SECRET, HTTPS PUBLIC_URL; DEV_MODE должен быть false")
+            raise RuntimeError("Render: задайте PostgreSQL DATABASE_URL, BOT_TOKEN, JOB_SECRET, WEBHOOK_SECRET; нужен HTTPS PUBLIC_URL или RENDER_EXTERNAL_URL; DEV_MODE должен быть false")
     engine = create_engine(database_url, pool_pre_ping=True,
                            connect_args={"check_same_thread": False} if database_url.startswith("sqlite") else {})
     sessions = sessionmaker(engine, expire_on_commit=False)

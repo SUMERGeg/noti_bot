@@ -17,8 +17,6 @@ services:
         sync: false
       - key: BOT_TOKEN
         sync: false
-      - key: PUBLIC_URL
-        sync: false
       - key: JOB_SECRET
         generateValue: true
       - key: WEBHOOK_SECRET

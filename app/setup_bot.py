@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 def main():
     load_dotenv()
     token = os.environ.get("BOT_TOKEN", "")
-    url = os.environ.get("PUBLIC_URL", "").rstrip("/")
+    url = (os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL", "")).rstrip("/")
     secret = os.environ.get("WEBHOOK_SECRET", "")
     if not token or not secret or not url.startswith("https://"):
         raise SystemExit("Укажите BOT_TOKEN, WEBHOOK_SECRET и HTTPS PUBLIC_URL в .env")
