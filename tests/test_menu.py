@@ -124,3 +124,79 @@ def test_copy_isolation_and_entry_deletion(client):
     assert client.get('/api/menu/plan?start=2026-11-02').json()['days'][2]['totals']['calories'] == 500
     assert client.delete('/api/menu/entries/'+str(entry['id'])).status_code == 204
     assert client.get('/api/menu/plan?start=2026-11-02').json()['days'][2]['totals']['calories'] == 0
+
+
+def test_per_portion_without_weight(client):
+    r=client.post('/api/menu/dishes',json=dish(nutrition_basis='per_portion',calories=400,protein=30,fat=18,carbs=28))
+    assert r.status_code == 201
+    assert r.json()['nutrition_basis'] == 'per_portion'
+    assert r.json()['portion_weight'] is None
+    payload={'dish_id':r.json()['id'],'day':'2026-11-04','meal':'lunch','quantity':1.5,'unit':'portions'}
+    entry=client.post('/api/menu/entries',json=payload).json()
+    assert entry['quantity'] == 1.5
+    assert entry['unit'] == 'portions'
+    assert entry['grams'] is None
+    assert entry['nutrition'] == {'calories':600,'protein':45,'fat':27,'carbs':42}
+    assert client.post('/api/menu/entries',json={**payload,'quantity':100,'unit':'grams'}).status_code == 422
+    changed=client.patch('/api/menu/entries/'+str(entry['id']),json={'quantity':.5,'unit':'portions','meal':'dinner'}).json()
+    assert changed['nutrition']['calories'] == 200
+    assert client.get('/api/menu/plan?start=2026-11-02').json()['days'][2]['totals']['calories'] == 200
+
+
+@pytest.mark.parametrize('basis,calories', [('per100g',200),('per_portion',500)])
+def test_both_units_with_portion_weight(client,basis,calories):
+    ident=client.post('/api/menu/dishes',json=dish(nutrition_basis=basis,calories=calories,portion_weight=250)).json()['id']
+    payload={'dish_id':ident,'day':'2026-11-04','meal':'lunch'}
+    a=client.post('/api/menu/entries',json={**payload,'quantity':1.5,'unit':'portions'}).json()
+    b=client.post('/api/menu/entries',json={**payload,'quantity':375,'unit':'grams'}).json()
+    assert a['nutrition']['calories'] == b['nutrition']['calories'] == 750
+    assert a['grams'] == 375
+    # Old clients can still submit grams.
+    assert add(client,ident,grams=180)['nutrition']['calories'] == 360
+
+
+def test_portion_copy_keeps_original_basis_weight_and_quantity(client):
+    ident=client.post('/api/menu/dishes',json=dish(nutrition_basis='per_portion',portion_weight=250,calories=500)).json()['id']
+    client.post('/api/menu/entries',json={'dish_id':ident,'day':'2026-11-04','meal':'lunch','quantity':.5,'unit':'portions'})
+    client.put('/api/menu/dishes/'+str(ident),json=dish(nutrition_basis='per100g',portion_weight=100,calories=900))
+    client.delete('/api/menu/dishes/'+str(ident))
+    assert client.post('/api/menu/copy',json={'source':'2026-11-04','target':'2026-11-05','scope':'day'}).json()['copied'] == 1
+    entry=client.get('/api/menu/plan?start=2026-11-02').json()['days'][3]['meals']['lunch']['entries'][0]
+    assert entry['unit'] == 'portions'
+    assert entry['quantity'] == .5
+    assert entry['grams'] == 125
+    assert entry['nutrition_basis'] == 'per_portion'
+    assert entry['portion_weight'] == 250
+    assert entry['nutrition']['calories'] == 250
+
+
+def test_portions_need_weight_for_per100g_and_validate_quantity(client):
+    ident=client.post('/api/menu/dishes',json=dish()).json()['id']
+    payload={'dish_id':ident,'day':'2026-11-04','meal':'lunch','unit':'portions','quantity':1}
+    assert client.post('/api/menu/entries',json=payload).status_code == 422
+    for value in (0,-1,'NaN'):
+        assert client.post('/api/menu/entries',json={**payload,'quantity':value}).status_code == 422
+    assert client.post('/api/menu/dishes',json=dish(portion_weight=0)).status_code == 422
+    assert client.post('/api/menu/dishes',json=dish(nutrition_basis='invalid')).status_code == 422
+
+
+def test_legacy_menu_database_migration(tmp_path):
+    from sqlalchemy import create_engine,text
+    url=f"sqlite:///{tmp_path / 'old-menu.db'}"
+    engine=create_engine(url)
+    with engine.begin() as db:
+        db.execute(text('CREATE TABLE menu_dishes (id INTEGER PRIMARY KEY, user_id BIGINT, title TEXT, category TEXT, calories FLOAT, protein FLOAT, fat FLOAT, carbs FLOAT, note TEXT, recipe_url TEXT, photo TEXT, favorite BOOLEAN)'))
+        db.execute(text("INSERT INTO menu_dishes VALUES (1,42,'Лазанья','Основные блюда',200,15,9,14,'','','',0)"))
+        db.execute(text('CREATE TABLE menu_entries (id INTEGER PRIMARY KEY, user_id BIGINT, day DATE, meal TEXT, dish_id INTEGER, snapshot JSON, grams FLOAT)'))
+        db.execute(text('INSERT INTO menu_entries VALUES (1,42,\'2026-11-04\',\'lunch\',1,:snapshot,250)'),{'snapshot':'{"title":"Лазанья","category":"Основные блюда","calories":200,"protein":15,"fat":9,"carbs":14}'})
+    engine.dispose()
+    for _ in range(2):
+        with TestClient(create_app(database_url=url,bot_token='test-token',dev_mode=False)) as c:
+            c.headers.update(signed())
+            saved=c.get('/api/menu/dishes').json()[0]
+            assert saved['nutrition_basis'] == 'per100g'
+            assert saved['portion_weight'] is None
+            entry=c.get('/api/menu/plan?start=2026-11-02').json()['days'][2]['meals']['lunch']['entries'][0]
+            assert entry['quantity'] == entry['grams'] == 250
+            assert entry['unit'] == 'grams'
+            assert entry['nutrition']['calories'] == 500

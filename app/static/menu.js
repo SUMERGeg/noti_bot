@@ -8,6 +8,9 @@
   let mounted=false, loaded=false, loading=false, requestId=0, panelId=0;
   const dialog=el('dialog'); dialog.id='menu-dialog'; dialog.setAttribute('aria-labelledby','menu-dialog-title'); document.body.append(dialog);
   const num=n=>new Intl.NumberFormat('ru',{maximumFractionDigits:state.settings.decimals}).format(n||0);
+  const amountNum=n=>new Intl.NumberFormat('ru',{maximumFractionDigits:6}).format(n||0);
+  const basisLabel=dish=>dish.nutrition_basis==='per_portion'?'1 порцию':'100 г';
+  const amountLabel=entry=>entry.unit==='portions'?amountNum(entry.quantity)+' порц.'+(entry.grams!=null?' ('+amountNum(entry.grams)+' г)':''):amountNum(entry.quantity??entry.grams)+' г';
   const dateText=(s,options={day:'numeric',month:'long'})=>new Intl.DateTimeFormat('ru',options).format(M.parse(s));
   const button=(label,cls,fn)=>{const b=el('button',cls,label);b.type='button';if(fn)b.onclick=fn;return b;};
   const option=(value,label)=>{const o=el('option','',label);o.value=value;return o;};
@@ -38,7 +41,7 @@
       <p id="menu-error" class="error" role="alert" hidden></p><button type="button" id="menu-retry" class="button secondary" hidden>Попробовать ещё раз</button><div id="menu-loading" class="skeleton" hidden></div>
       <div id="menu-content" hidden>
       <section id="menu-plan"><div class="week-toolbar"><button type="button" id="week-prev" class="icon-button" aria-label="Предыдущая неделя">‹</button><h2 id="menu-month"></h2><button type="button" id="week-next" class="icon-button" aria-label="Следующая неделя">›</button></div><div class="plan-tools"><button type="button" id="week-today" class="text-button">К текущей неделе</button><div class="segments"><button type="button" id="view-day" aria-pressed="true">День</button><button type="button" id="view-week" aria-pressed="false">Неделя</button></div></div><div id="menu-days" class="menu-days" aria-label="Дни недели"></div><div id="day-plan"></div><div class="plan-actions"><button type="button" id="copy-day" class="button secondary">Копировать день</button><button type="button" id="copy-week" class="button secondary">Повторить неделю</button><button type="button" id="clear-day" class="text-button danger-text">Очистить день</button></div></section>
-      <section id="menu-catalog" hidden><div class="section-head"><h2>Мои блюда <span id="dish-count" class="pill"></span></h2><button type="button" id="new-dish" class="button primary compact">＋ Добавить блюдо</button></div><input type="search" id="dish-search" aria-label="Поиск блюд" placeholder="Найти что-нибудь вкусное…"><div class="catalog-filters"><select id="dish-category" aria-label="Категория блюд"><option value="">Все категории</option></select><button type="button" id="dish-favorites" class="button secondary" aria-pressed="false">♡ Избранное</button></div><p class="hint">По алфавиту · КБЖУ на 100 г готового блюда</p><div id="dish-list" class="dish-list"></div></section>
+      <section id="menu-catalog" hidden><div class="section-head"><h2>Мои блюда <span id="dish-count" class="pill"></span></h2><button type="button" id="new-dish" class="button primary compact">＋ Добавить блюдо</button></div><input type="search" id="dish-search" aria-label="Поиск блюд" placeholder="Найти что-нибудь вкусное…"><div class="catalog-filters"><select id="dish-category" aria-label="Категория блюд"><option value="">Все категории</option></select><button type="button" id="dish-favorites" class="button secondary" aria-pressed="false">♡ Избранное</button></div><p class="hint">По алфавиту · КБЖУ на 100 г или на порцию</p><div id="dish-list" class="dish-list"></div></section>
       <section id="menu-settings" hidden></section></div>
       <nav class="menu-nav" aria-label="Разделы рациона"><button type="button" data-menu-tab="plan" aria-pressed="true"><span>▦</span>План питания</button><button type="button" data-menu-tab="catalog" aria-pressed="false"><span>♧</span>Мои блюда</button><button type="button" data-menu-tab="settings" aria-pressed="false"><span>⚙</span>Настройки</button></nav>`;
     categories.forEach(c=>$('dish-category').append(option(c,c)));
@@ -73,7 +76,7 @@
     for(let i=0;i<7;i++){const date=M.addDays(state.week,i),b=button('','day-button',()=>{state.date=date;renderPlan();});b.setAttribute('aria-label',dateText(date,{weekday:'long',day:'numeric',month:'long'}));b.setAttribute('aria-pressed',date===state.date);if(date===M.today())b.classList.add('today');b.append(el('span','',['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]),el('strong','',M.parse(date).getDate()));$('menu-days').append(b);}
     $('view-day').setAttribute('aria-pressed',!state.overview);$('view-week').setAttribute('aria-pressed',state.overview);
     const out=$('day-plan');out.replaceChildren();
-    if(state.overview){for(const day of state.days){const card=button('','week-card',()=>{state.date=day.day;state.overview=false;renderPlan();});card.append(el('h3','',dateText(day.day,{weekday:'long',day:'numeric',month:'short'})));for(const [key,label] of Object.entries(meals)){const items=day.meals[key].entries;card.append(el('p','',label+': '+(items.length?items.map(e=>e.title+' · '+num(e.grams)+' г').join('; '):'—')));}card.append(el('strong','',num(day.totals.calories)+' ккал'));out.append(card);}return;}
+    if(state.overview){for(const day of state.days){const card=button('','week-card',()=>{state.date=day.day;state.overview=false;renderPlan();});card.append(el('h3','',dateText(day.day,{weekday:'long',day:'numeric',month:'short'})));for(const [key,label] of Object.entries(meals)){const items=day.meals[key].entries;card.append(el('p','',label+': '+(items.length?items.map(e=>e.title+' · '+amountLabel(e)).join('; '):'—')));}card.append(el('strong','',num(day.totals.calories)+' ккал'));out.append(card);}return;}
     const day=state.days.find(d=>d.day===state.date);if(!day)return;
     const total=el('section','day-total');total.append(el('div','eyebrow','ИТОГО ЗА ДЕНЬ'),nutrition(day.totals));
     if(state.settings.calorie_goal)total.append(el('p','goal-note',num(day.totals.calories)+' / '+num(state.settings.calorie_goal)+' ккал · твой ориентир'));
@@ -81,7 +84,7 @@
     for(const [key,label] of Object.entries(meals)){
       const meal=day.meals[key],card=el('section','meal-card'),head=el('div','section-head');head.append(el('h3','',icons[key]+' '+label),button('＋ Добавить','text-button',()=>picker(key)));card.append(head);
       if(!meal.entries.length)card.append(el('p','meal-empty','Пока ничего не запланировано'));
-      for(const entry of meal.entries){const row=el('div','meal-entry'),info=el('div','entry-info');info.append(el('strong','',entry.title),el('p','',num(entry.grams)+' г · '+num(entry.nutrition.calories)+' ккал'));
+      for(const entry of meal.entries){const row=el('div','meal-entry'),info=el('div','entry-info');info.append(el('strong','',entry.title),el('p','',amountLabel(entry)+' · '+num(entry.nutrition.calories)+' ккал'));
         const details=el('details','entry-macros');details.append(el('summary','','БЖУ'),el('p','','Белки '+num(entry.nutrition.protein)+' г · Жиры '+num(entry.nutrition.fat)+' г · Углеводы '+num(entry.nutrition.carbs)+' г'));info.append(details);
         const actions=el('div','entry-actions'),edit=button('✎','icon-button',()=>portionPanel(entry,key,true)),remove=button('×','icon-button',()=>run(async()=>{await api('/menu/entries/'+entry.id,{method:'DELETE'});await loadPlan();},remove));
         edit.setAttribute('aria-label','Изменить порцию '+entry.title);remove.setAttribute('aria-label','Убрать из меню '+entry.title);actions.append(edit,remove);row.append(info,actions);card.append(row);
@@ -96,13 +99,14 @@
     if(!dishes.length){list.append(el('div','empty',state.dishes.length?'Ничего не нашлось. Попробуй другой поиск ♡':'Здесь будут твои любимые блюда, Муся ♡'));return;}
     for(const dish of dishes){const card=el('article','dish-card'),open=button('','dish-open',()=>viewDish(dish));
       if(dish.photo){const img=el('img','dish-thumb');img.src=dish.photo;img.alt='';img.loading='lazy';open.append(img);}else open.append(el('span','dish-emoji','♧'));
-      const info=el('div');info.append(el('strong','',dish.title),el('span','',dish.category),el('p','',num(dish.calories)+' ккал / 100 г'));open.append(info);
+      const info=el('div');info.append(el('strong','',dish.title),el('span','',dish.category),el('p','',num(dish.calories)+' ккал / '+basisLabel(dish)));open.append(info);
       const favorite=button(dish.favorite?'♥':'♡','favorite-button',()=>run(async()=>{const saved=await api('/menu/dishes/'+dish.id,{method:'PUT',body:JSON.stringify({...dish,favorite:!dish.favorite})});state.dishes=state.dishes.map(d=>d.id===saved.id?saved:d);renderCatalog();},favorite));favorite.setAttribute('aria-label',(dish.favorite?'Убрать из избранного ':'В избранное ')+dish.title);favorite.setAttribute('aria-pressed',dish.favorite);card.append(open,favorite);list.append(card);
     }
   }
   function viewDish(dish){
     const body=el('div');if(dish.photo){const img=el('img','dish-photo');img.src=dish.photo;img.alt=dish.title;body.append(img);}
-    body.append(el('p','hint',dish.category+' · на 100 г готового блюда'),nutrition(dish));
+    body.append(el('p','hint',dish.category+' · КБЖУ на '+basisLabel(dish)),nutrition(dish));
+    if(dish.portion_weight)body.append(el('p','hint','Одна порция — '+amountNum(dish.portion_weight)+' г'));
     if(dish.note)body.append(el('p','reading',dish.note));if(dish.recipe_url){const link=el('a','recipe-link','Открыть рецепт ↗');link.href=dish.recipe_url;link.target='_blank';link.rel='noopener noreferrer';body.append(link);}
     const remove=button('Удалить блюдо','button danger',()=>{if(confirm('Удалить «'+dish.title+'» из каталога? Составленное меню сохранится.'))run(async()=>{await api('/menu/dishes/'+dish.id,{method:'DELETE'});state.dishes=state.dishes.filter(d=>d.id!==dish.id);renderCatalog();dialog.close();},remove);});body.append(el('p','hint','Изменение блюда не меняет уже составленное меню.'),remove);
     panel(dish.title,body,async()=>editDish(dish),'Редактировать');
@@ -114,26 +118,38 @@
   }
   function editDish(dish=null){
     const body=el('div'),title=input('text',dish?.title||'');title.required=true;title.maxLength=200;title.placeholder='Например, лазанья с индейкой';
-    const category=el('select');categories.forEach(c=>category.append(option(c,c)));category.value=dish?.category||'Основные блюда';body.append(field('Название блюда *',title),field('Категория *',category),el('p','hint','Все значения — на 100 г готового блюда. КБЖУ рецепта ты вносишь сама.'));
+    const category=el('select');categories.forEach(c=>category.append(option(c,c)));category.value=dish?.category||'Основные блюда';
+    const basis=el('select');basis.append(option('per100g','На 100 г'),option('per_portion','На одну порцию'));basis.value=dish?.nutrition_basis||'per100g';
+    const basisHint=el('p','hint');const updateBasisHint=()=>{basisHint.textContent=(basis.value==='per_portion'?'Введи КБЖУ одной целой порции.':'Введи КБЖУ на 100 г готового блюда.')+' При смене способа проверь, что значения соответствуют выбранной основе.';};basis.onchange=updateBasisHint;updateBasisHint();
+    const weight=number(dish?.portion_weight??'',false);weight.min='0.001';weight.max='100000';weight.placeholder='Например, 250 · можно не заполнять';
+    body.append(field('Название блюда *',title),field('Категория *',category),field('Как указать КБЖУ',basis),basisHint);
     const macros=el('div','dish-fields'),fields={};for(const [key,label] of [['calories','Калории, ккал *'],['protein','Белки, г *'],['fat','Жиры, г *'],['carbs','Углеводы, г *']]){fields[key]=number(dish?.[key]??'');fields[key].max=key==='calories'?'100000':'1000';macros.append(field(label,fields[key]));}body.append(macros);
+    body.append(field('Вес одной порции, г · необязательно',weight),el('p','hint','Вес нужен для пересчёта между граммами и порциями. Если он неизвестен, можно считать в единицах выбранной основы.'));
     let photo=dish?.photo||'',photoPending=false;const image=el('img','dish-photo');image.hidden=!photo;if(photo)image.src=photo;
     const upload=input('file');upload.accept='image/jpeg,image/png,image/webp';const status=el('p','hint');status.setAttribute('role','status');
     upload.onchange=async()=>{if(!upload.files[0])return;photoPending=true;status.textContent='Уменьшаю фотографию…';try{photo=await compressPhoto(upload.files[0]);image.src=photo;image.hidden=false;status.textContent='Фотография готова ♡';}catch(e){status.textContent=errorText(e);}finally{photoPending=false;upload.value='';}};
     const removePhoto=button('Убрать фото','text-button',()=>{photo='';image.removeAttribute('src');image.hidden=true;status.textContent='';});
     const note=el('textarea');note.rows=3;note.maxLength=20000;note.value=dish?.note||'';const link=input('url',dish?.recipe_url||'');link.placeholder='https://…';link.maxLength=2000;
     body.append(field('Фотография · необязательно',upload),status,image,removePhoto,field('Описание или заметка',note),field('Ссылка на рецепт',link));
-    panel(dish?'Редактировать блюдо':'Новое блюдо',body,async()=>{if(photoPending)throw new Error('Подожди, фотография ещё обрабатывается.');const data={title:title.value.trim(),category:category.value,note:note.value,recipe_url:link.value.trim(),photo,favorite:dish?.favorite||false};for(const key of Object.keys(fields))data[key]=Number(fields[key].value);const saved=await api('/menu/dishes'+(dish?'/'+dish.id:''),{method:dish?'PUT':'POST',body:JSON.stringify(data)});state.dishes=state.dishes.filter(d=>d.id!==saved.id);state.dishes.push(saved);if(state.tab==='catalog')renderCatalog();notify('Вкусное сохранено, Муся ♡');},'Сохранить блюдо');
+    panel(dish?'Редактировать блюдо':'Новое блюдо',body,async()=>{if(photoPending)throw new Error('Подожди, фотография ещё обрабатывается.');const data={title:title.value.trim(),category:category.value,note:note.value,recipe_url:link.value.trim(),photo,favorite:dish?.favorite||false,nutrition_basis:basis.value,portion_weight:weight.value===''?null:Number(weight.value)};for(const key of Object.keys(fields))data[key]=Number(fields[key].value);const saved=await api('/menu/dishes'+(dish?'/'+dish.id:''),{method:dish?'PUT':'POST',body:JSON.stringify(data)});state.dishes=state.dishes.filter(d=>d.id!==saved.id);state.dishes.push(saved);if(state.tab==='catalog')renderCatalog();notify('Вкусное сохранено, Муся ♡');},'Сохранить блюдо');
   }
   function picker(meal){
     const body=el('div'),search=input('search'),select=el('select'),list=el('div','picker-list');search.placeholder='Поиск блюда';search.setAttribute('aria-label','Поиск блюда');select.setAttribute('aria-label','Категория блюда');select.append(option('','Все категории'));categories.forEach(c=>select.append(option(c,c)));body.append(search,select,list);
-    const draw=()=>{list.replaceChildren();const dishes=filtered(state.dishes,search.value,select.value,false);if(!dishes.length)list.append(el('p','hint',state.dishes.length?'Ничего не найдено':'Сначала добавь блюдо в разделе «Мои блюда» ♡'));for(const dish of dishes){const b=button('','picker-dish',()=>portionPanel(dish,meal));b.append(el('strong','',dish.title),el('span','',num(dish.calories)+' ккал / 100 г · '+dish.category));list.append(b);}};search.oninput=select.onchange=draw;draw();panel(meals[meal]+' · выбрать блюдо',body,null);
+    const draw=()=>{list.replaceChildren();const dishes=filtered(state.dishes,search.value,select.value,false);if(!dishes.length)list.append(el('p','hint',state.dishes.length?'Ничего не найдено':'Сначала добавь блюдо в разделе «Мои блюда» ♡'));for(const dish of dishes){const b=button('','picker-dish',()=>portionPanel(dish,meal));b.append(el('strong','',dish.title),el('span','',num(dish.calories)+' ккал / '+basisLabel(dish)+' · '+dish.category));list.append(b);}};search.oninput=select.onchange=draw;draw();panel(meals[meal]+' · выбрать блюдо',body,null);
   }
   function portionPanel(dish,meal,isEntry=false){
-    const day=state.date,body=el('div'),grams=number(isEntry?dish.grams:250);grams.min='.1';grams.max='100000';
-    body.append(el('p','hint',num(dish.calories)+' ккал / 100 г · '+dateText(day)),field('Масса порции, г *',grams));
+    const day=state.date,body=el('div'),unit=el('select');
+    for(const [value,label] of [['grams','В граммах'],['portions','В порциях']]){const o=option(value,label);o.disabled=!M.canMeasure(dish,value);unit.append(o);}
+    unit.value=isEntry?(dish.unit||'grams'):(dish.nutrition_basis==='per_portion'?'portions':'grams');
+    let previousUnit=unit.value;
+    const quantity=number(isEntry?(dish.quantity??dish.grams):(unit.value==='portions'?1:250));quantity.min='0.001';quantity.max='100000';
+    const quantityField=field('',quantity);
+    body.append(el('p','hint',num(dish.calories)+' ккал / '+basisLabel(dish)+' · '+dateText(day)),field('Указать количество',unit),quantityField);
+    body.append(el('p','hint',dish.portion_weight?'Одна порция — '+amountNum(dish.portion_weight)+' г':'Чтобы выбирать и граммы, и порции, добавь вес одной порции в настройках блюда.'));
     const slot=el('select');Object.entries(meals).forEach(([value,label])=>slot.append(option(value,label)));slot.value=meal;body.append(field('Приём пищи',slot));
-    const preview=el('div');body.append(preview);const draw=()=>preview.replaceChildren(nutrition(M.portion(dish,Math.max(0,Number(grams.value)||0))));grams.oninput=draw;draw();
-    panel(dish.title,body,async()=>{const data={grams:Number(grams.value),meal:slot.value};await api('/menu/entries'+(isEntry?'/'+dish.id:''),{method:isEntry?'PATCH':'POST',body:JSON.stringify(isEntry?data:{...data,day,dish_id:dish.id})});await loadPlan();notify(isEntry?'Порция обновлена':'Добавлено в твоё меню ♡');},isEntry?'Сохранить порцию':'Добавить в меню');
+    const preview=el('div');body.append(preview);const draw=()=>{quantityField.querySelector('label').textContent=unit.value==='portions'?'Количество порций *':'Масса, г *';preview.replaceChildren(nutrition(M.portion(dish,Math.max(0,Number(quantity.value)||0),unit.value)));};quantity.oninput=draw;
+    unit.onchange=()=>{quantity.value=Number(M.convertQuantity(dish,Number(quantity.value)||0,previousUnit,unit.value).toFixed(6));previousUnit=unit.value;draw();};draw();
+    panel(dish.title,body,async()=>{const data={quantity:Number(quantity.value),unit:unit.value,meal:slot.value};await api('/menu/entries'+(isEntry?'/'+dish.id:''),{method:isEntry?'PATCH':'POST',body:JSON.stringify(isEntry?data:{...data,day,dish_id:dish.id})});await loadPlan();notify(isEntry?'Порция обновлена':'Добавлено в твоё меню ♡');},isEntry?'Сохранить порцию':'Добавить в меню');
   }
   function copyPanel(scope,meal='breakfast'){
     const source=scope==='week'?state.week:state.date,body=el('div'),target=input('date',M.addDays(source,scope==='week'?7:1));target.required=true;

@@ -1,5 +1,6 @@
 import base64
 import binascii
+import math
 from datetime import date, timedelta
 from typing import Literal
 from urllib.parse import urlsplit
@@ -23,6 +24,8 @@ class DishInput(BaseModel):
     protein: float = Field(ge=0, le=1000, allow_inf_nan=False)
     fat: float = Field(ge=0, le=1000, allow_inf_nan=False)
     carbs: float = Field(ge=0, le=1000, allow_inf_nan=False)
+    nutrition_basis: Literal['per100g', 'per_portion'] = 'per100g'
+    portion_weight: float | None = Field(default=None, gt=0, le=100000, allow_inf_nan=False)
     note: str = Field(default='', max_length=20000)
     recipe_url: str = Field(default='', max_length=2000)
     photo: str = Field(default='', max_length=700000)
@@ -50,8 +53,20 @@ class DishInput(BaseModel):
 
 
 class PortionInput(BaseModel):
-    grams: float = Field(gt=0, le=100000, allow_inf_nan=False)
+    grams: float | None = Field(default=None, gt=0, le=100000, allow_inf_nan=False)
+    quantity: float | None = Field(default=None, gt=0, le=100000, allow_inf_nan=False)
+    unit: Literal['grams', 'portions'] = 'grams'
     meal: Meal
+
+    @model_validator(mode='after')
+    def normalize_quantity(self):
+        if self.grams is not None:
+            if self.unit != 'grams' or self.quantity is not None:
+                raise ValueError('Укажите количество одним способом')
+            self.quantity = self.grams
+        if self.quantity is None:
+            raise ValueError('Укажите количество')
+        return self
 
 
 class EntryInput(PortionInput):
@@ -86,9 +101,28 @@ def dish_data(row):
 
 
 def entry_data(row):
+    snapshot = {'nutrition_basis': 'per100g', 'portion_weight': None, **row.snapshot}
+    factor = portion_factor(snapshot, row.grams, row.unit)
+    grams = row.grams if row.unit == 'grams' else row.grams * snapshot['portion_weight'] if snapshot['portion_weight'] else None
     return {'id': row.id, 'dish_id': row.dish_id, 'day': row.day.isoformat(), 'meal': row.meal,
-            'grams': row.grams, **row.snapshot,
-            'nutrition': {key: row.snapshot[key] * row.grams / 100 for key in NUTRIENTS}}
+            'grams': grams, 'quantity': row.grams, 'unit': row.unit, **snapshot,
+            'nutrition': {key: snapshot[key] * factor for key in NUTRIENTS}}
+
+
+def portion_factor(dish, quantity, unit):
+    per_portion = dish.get('nutrition_basis', 'per100g') == 'per_portion'
+    weight = dish.get('portion_weight')
+    if (unit == 'grams' and per_portion) or (unit == 'portions' and not per_portion):
+        if not weight:
+            raise HTTPException(422, 'Для пересчёта между граммами и порциями укажите вес одной порции в блюде')
+    factor = quantity if per_portion else quantity / 100
+    if unit == 'grams' and per_portion:
+        factor = quantity / weight
+    elif unit == 'portions' and not per_portion:
+        factor = quantity * weight / 100
+    if not math.isfinite(factor) or any(not math.isfinite(dish[key] * factor) for key in NUTRIENTS):
+        raise HTTPException(422, 'Проверьте количество и вес порции')
+    return factor
 
 
 def zero():
@@ -154,8 +188,9 @@ def menu_router(sessions, user):
     def add_entry(data: EntryInput, uid: int = Depends(user)):
         with sessions.begin() as db:
             dish = owned(db, Dish, data.dish_id, uid)
-            snapshot = {key: getattr(dish, key) for key in ('title', 'category', *NUTRIENTS)}
-            row = MenuEntry(user_id=uid, **data.model_dump(), snapshot=snapshot)
+            snapshot = {key: getattr(dish, key) for key in ('title', 'category', 'nutrition_basis', 'portion_weight', *NUTRIENTS)}
+            portion_factor(snapshot, data.quantity, data.unit)
+            row = MenuEntry(user_id=uid, dish_id=data.dish_id, day=data.day, meal=data.meal, grams=data.quantity, unit=data.unit, snapshot=snapshot)
             db.add(row)
             db.flush()
             return entry_data(row)
@@ -164,7 +199,8 @@ def menu_router(sessions, user):
     def edit_entry(ident: int, data: PortionInput, uid: int = Depends(user)):
         with sessions.begin() as db:
             row = owned(db, MenuEntry, ident, uid)
-            row.grams, row.meal = data.grams, data.meal
+            portion_factor(row.snapshot, data.quantity, data.unit)
+            row.grams, row.meal, row.unit = data.quantity, data.meal, data.unit
             return entry_data(row)
 
     @router.delete('/entries/{ident}', status_code=204)
@@ -190,7 +226,7 @@ def menu_router(sessions, user):
                 target = target.where(MenuEntry.meal == data.target_meal)
             # Materialize snapshots before deleting the destination.
             copies = [dict(user_id=uid, day=data.target + (row.day - data.source), meal=data.target_meal if data.scope == 'meal' else row.meal,
-                           dish_id=row.dish_id, snapshot=dict(row.snapshot), grams=row.grams) for row in db.scalars(source)]
+                           dish_id=row.dish_id, snapshot=dict(row.snapshot), grams=row.grams, unit=row.unit) for row in db.scalars(source)]
             db.execute(target)
             db.add_all([MenuEntry(**values) for values in copies])
         return {'copied': len(copies)}

@@ -14,3 +14,16 @@ test('calendar handles year and month boundaries without UTC shifts', () => {
   assert.equal(M.addDays('2026-12-28',7),'2027-01-04');
   assert.equal(M.addDays('2028-02-28',1),'2028-02-29');
 });
+test('fractional portions with or without a declared weight',()=>{
+  const dish={calories:500,protein:30,fat:20,carbs:50,nutrition_basis:'per_portion'};
+  assert.deepEqual(M.portion(dish,1.5,'portions'),{calories:750,protein:45,fat:30,carbs:75});
+  assert.equal(M.portion({...dish,portion_weight:250},180,'grams').calories,360);
+  assert.throws(()=>M.portion(dish,100,'grams'));
+});
+test('100g nutrition supports portions when their weight is known',()=>{
+  const dish={calories:200,protein:0,fat:0,carbs:0,portion_weight:250};
+  assert.equal(M.portion(dish,1.5,'portions').calories,750);
+  assert.equal(M.convertQuantity(dish,1.5,'portions','grams'),375);
+  assert.equal(M.convertQuantity(dish,375,'grams','portions'),1.5);
+  assert.throws(()=>M.portion({...dish,portion_weight:null},1,'portions'));
+});

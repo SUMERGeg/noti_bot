@@ -19,6 +19,7 @@ from app.auth import telegram_user
 from app.schedule import CARD_FLAG_EMOJI, CardInput, next_due
 from app.store import Base, Card, ensure_card_flag
 from app.menu import menu_router
+from app.menu_store import ensure_menu_units
 
 logger = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
@@ -59,6 +60,7 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
     async def lifespan(app):
         Base.metadata.create_all(engine)
         ensure_card_flag(engine)
+        ensure_menu_units(engine)
         if engine.dialect.name == "postgresql":
             # Supabase exposes public tables via its API. Only our DB owner may
             # access cards; no anonymous/authenticated API policies are created.
