@@ -73,10 +73,10 @@
   }
   function renderPlan(){
     $('menu-month').textContent=dateText(state.date,{month:'long',year:'numeric'});$('menu-days').replaceChildren();
-    for(let i=0;i<7;i++){const date=M.addDays(state.week,i),b=button('','day-button',()=>{state.date=date;renderPlan();});b.setAttribute('aria-label',dateText(date,{weekday:'long',day:'numeric',month:'long'}));b.setAttribute('aria-pressed',date===state.date);if(date===M.today())b.classList.add('today');b.append(el('span','',['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]),el('strong','',M.parse(date).getDate()));$('menu-days').append(b);}
+    for(let i=0;i<7;i++){const date=M.addDays(state.week,i),b=button('','day-button',()=>{state.date=date;renderPlan();});b.dataset.day=date;b.setAttribute('aria-label',dateText(date,{weekday:'long',day:'numeric',month:'long'}));b.setAttribute('aria-pressed',date===state.date);if(date===M.today())b.classList.add('today');b.append(el('span','',['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]),el('strong','',M.parse(date).getDate()));$('menu-days').append(b);}
     $('view-day').setAttribute('aria-pressed',!state.overview);$('view-week').setAttribute('aria-pressed',state.overview);
     const out=$('day-plan');out.replaceChildren();
-    if(state.overview){for(const day of state.days){const card=button('','week-card',()=>{state.date=day.day;state.overview=false;renderPlan();});card.append(el('h3','',dateText(day.day,{weekday:'long',day:'numeric',month:'short'})));for(const [key,label] of Object.entries(meals)){const items=day.meals[key].entries;card.append(el('p','',label+': '+(items.length?items.map(e=>e.title+' · '+amountLabel(e)).join('; '):'—')));}card.append(el('strong','',num(day.totals.calories)+' ккал'));out.append(card);}return;}
+    if(state.overview){for(const day of state.days){const card=button('','week-card',()=>{state.date=day.day;state.overview=false;renderPlan();});card.append(el('h3','',dateText(day.day,{weekday:'long',day:'numeric',month:'short'})));for(const [key,label] of Object.entries(meals)){const items=day.meals[key].entries;card.append(el('p','',label+': '+(items.length?items.map(e=>e.title+' · '+amountLabel(e)).join('; '):'—')));}card.append(el('strong','',num(day.totals.calories)+' ккал'));out.append(card);}publishPlan();return;}
     const day=state.days.find(d=>d.day===state.date);if(!day)return;
     const total=el('section','day-total');total.append(el('div','eyebrow','ИТОГО ЗА ДЕНЬ'),nutrition(day.totals));
     if(state.settings.calorie_goal)total.append(el('p','goal-note',num(day.totals.calories)+' / '+num(state.settings.calorie_goal)+' ккал · твой ориентир'));
@@ -91,7 +91,10 @@
       }
       const bottom=el('div','meal-bottom');bottom.append(el('span','',num(meal.totals.calories)+' ккал'),button('Копировать','text-button',()=>copyPanel('meal',key)));card.append(bottom);out.append(card);
     }
+    publishPlan();
   }
+  function publishPlan(){window.dispatchEvent(new CustomEvent('menu-plan-render',{detail:{week:state.week,date:state.date,overview:state.overview}}));}
+  window.addEventListener('menu-open-day',event=>{if(MenuCore.weekStart(event.detail)!==state.week)return;state.date=event.detail;state.overview=false;renderPlan();});
   function filtered(list,search,category,favorites){return list.filter(d=>(!search||d.title.toLocaleLowerCase('ru').includes(search.toLocaleLowerCase('ru')))&&(!category||d.category===category)&&(!favorites||d.favorite)).sort((a,b)=>a.title.localeCompare(b.title,'ru'));}
   function renderCatalog(){
     const list=$('dish-list');list.replaceChildren();$('dish-count').textContent=state.dishes.length;

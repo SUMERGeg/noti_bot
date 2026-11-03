@@ -20,6 +20,7 @@ from app.schedule import CARD_FLAG_EMOJI, CardInput, next_due
 from app.store import Base, Card, ensure_card_flag
 from app.menu import menu_router
 from app.menu_store import ensure_menu_units
+from app.diary import diary_router
 
 logger = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
@@ -116,6 +117,7 @@ def create_app(database_url=None, bot_token=None, job_secret=None, webhook_secre
         return row
 
     app.include_router(menu_router(sessions, user))
+    app.include_router(diary_router(sessions, user))
 
     @app.get("/health")
     def health():
